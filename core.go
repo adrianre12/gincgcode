@@ -134,7 +134,9 @@ func Process(writer *bufio.Writer, info Info) {
 			continue
 		}
 
-		current := Current{Y: float32(math.MaxFloat32), Z: float32(math.MaxFloat32)}
+		current := Current{Y: float32(math.MaxFloat32), Z: float32(math.MaxFloat32)} //current tool position
+		clampedZ := float32(math.MaxFloat32)
+		lastZ := float32(math.MaxFloat32)
 		lastBlock := gcode.Block{}
 
 		i := 0
@@ -144,9 +146,10 @@ func Process(writer *bufio.Writer, info Info) {
 			clampedBlock := block.Copy() //copy the block
 			if clampedBlock.ClampZ(info.Increment, info.MinCut, pass, info.Safe) {
 				logl.Debugf("Z clamped to %.3f", (*clampedBlock.Z).Value)
+				clampedZ = clampedBlock.Z.Value
 			}
 
-			logl.Debugf("Current Y=%.3f Z=%.3f IsSafe=%t", current.Y, current.Z, clampedBlock.IsSafe)
+			logl.Debugf("Current Y=%.3f Z=%.3f IsSafe=%t clampedZ=%.3f", current.Y, current.Z, clampedBlock.IsSafe, clampedZ)
 			//logl.Debugf("%v", clampedBlock)
 			if clampedBlock.NoChangeY(current.Y) && clampedBlock.NoChangeZ(current.Z) {
 				logl.Debugf("skip %d", i)
@@ -154,30 +157,28 @@ func Process(writer *bufio.Writer, info Info) {
 				if i == len(info.Data) {
 					logl.Debug("Output lastBlock to to end of data")
 					OutputBlock(writer, &clampedBlock)
-					current.Update(block.Y, block.Z)
+					current.Update(clampedBlock.Y, clampedBlock.Z)
 				} else {
 					if logl.GetLevel() == logl.DEBUG {
 						writer.WriteString("/skip ")
 						OutputBlock(writer, &clampedBlock)
 					}
-					lastBlock = clampedBlock
+					lastBlock = clampedBlock // store the last skipped block
+					lastZ = clampedZ
 					lastBlock.Skip = true
 				}
 			} else { // Y or Z moved
-				if lastBlock.Skip {
+				if lastBlock.Skip { //we are comming out of a skip so write the last block
 					logl.Debugf("Output lastBlock")
+					if lastZ == info.Safe { // lastBlock is at safe height so fast move
+						lastBlock.SetG(0)
+					}
 					OutputBlock(writer, &lastBlock)
-					current.Update(block.Y, block.Z)
 					lastBlock.Init()
 				}
 				logl.Debugf("Output %d", i)
 				OutputBlock(writer, &clampedBlock)
-				if clampedBlock.Y != nil {
-					current.Y = (*clampedBlock.Y).Value
-				}
-				if clampedBlock.Z != nil {
-					current.Z = (*clampedBlock.Z).Value
-				}
+				current.Update(clampedBlock.Y, clampedBlock.Z)
 				i++
 				continue
 			}
