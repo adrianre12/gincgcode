@@ -12,9 +12,9 @@ import (
 )
 
 type Info struct {
-	Setup     *gcode.Blocks
-	Data      *gcode.Blocks
-	Finish    *gcode.Blocks
+	Setup     gcode.Blocks
+	Data      gcode.Blocks
+	Finish    gcode.Blocks
 	MinZ      float32
 	MaxZ      float32
 	Increment float32
@@ -54,9 +54,10 @@ func ReadFile(fileName string) *gcode.Blocks {
 	blocks := make(gcode.Blocks, 0)
 
 	for scanner.Scan() {
-		block, err := gcode.ParseLine(scanner.Text())
+		txt := scanner.Text()
+		block, err := gcode.ParseLine(txt)
 		if err != nil {
-			logl.Fatalf("Failed to parse file: %s", err)
+			logl.Fatalf("Failed to parse '%s' %s", txt, err)
 		}
 		blocks = append(blocks, block)
 	}
@@ -89,30 +90,38 @@ func FindInfo(blocks *gcode.Blocks) Info {
 		}
 	}
 	logl.Debugf("first=%d last=%d", first, last)
-	s := (*blocks)[:first]
-	info.Setup = &s
-	d := (*blocks)[first : last+1]
-	info.Data = &d
-	f := (*blocks)[last+1:]
-	info.Finish = &f
+	info.Setup = (*blocks)[:first]
+	info.Data = (*blocks)[first : last+1]
+	info.Finish = (*blocks)[last+1:]
 	return info
 }
 
 func OutputBlock(writer *bufio.Writer, block *gcode.Block) {
-	writer.WriteString(block.String(true))
+	writer.WriteString(block.String(true, " "))
 }
 
-func OutputBlocks(writer *bufio.Writer, blocks *gcode.Blocks) {
-	for _, block := range *blocks {
+func OutputBlocks(writer *bufio.Writer, blocks gcode.Blocks) {
+	for _, block := range blocks {
 		OutputBlock(writer, block)
+	}
+}
+
+type Current struct {
+	Y float32
+	Z float32
+}
+
+func (c *Current) Update(Y *gcode.CodeCmd, Z *gcode.CodeCmd) {
+	if Y != nil && Y.Value != c.Y {
+		c.Y = Y.Value
+	}
+	if Z != nil && Z.Value != c.Z {
+		c.Z = Z.Value
 	}
 }
 
 func Process(writer *bufio.Writer, info Info) {
 	logl.Debug("Processing")
-
-	// skip := false
-	// clamp := true
 
 	// // calculate passes
 	passes := info.Passes()
@@ -125,31 +134,32 @@ func Process(writer *bufio.Writer, info Info) {
 			continue
 		}
 
-		currentY := float32(math.MaxFloat32)
-		currentZ := float32(math.MaxFloat32)
+		current := Current{Y: float32(math.MaxFloat32), Z: float32(math.MaxFloat32)}
 		lastBlock := gcode.Block{}
 
 		i := 0
-		for i < len(*info.Data) { //blocks
-			block := (*info.Data)[i]
-			logl.Debugf("%d %s", i, block.String(false))
-			clampedBlock := *block //copy the block
-			clampedBlock.ClampZ(info.Increment, info.MinCut, pass, info.Safe)
-			if clampedBlock.Y != nil && clampedBlock.Y.Value != currentY {
-				currentY = clampedBlock.Y.Value
+		for i < len(info.Data) { //blocks
+			block := info.Data[i]
+			logl.Debugf("%d %s", i, block.String(false, " "))
+			clampedBlock := block.Copy() //copy the block
+			if clampedBlock.ClampZ(info.Increment, info.MinCut, pass, info.Safe) {
+				logl.Debugf("Z clamped to %.3f", (*clampedBlock.Z).Value)
 			}
-			if clampedBlock.Z != nil && clampedBlock.Z.Value != currentZ {
-				currentZ = clampedBlock.Z.Value
-			}
-			logl.Debugf("Current Y=%.3f Z=%.3f", currentY, currentZ)
 
-			if clampedBlock.NoChangeY(currentY) && !clampedBlock.NoChangeZ(currentZ) {
+			logl.Debugf("Current Y=%.3f Z=%.3f IsSafe=%t", current.Y, current.Z, clampedBlock.IsSafe)
+			//logl.Debugf("%v", clampedBlock)
+			if clampedBlock.NoChangeY(current.Y) && clampedBlock.NoChangeZ(current.Z) {
 				logl.Debugf("skip %d", i)
 				i++
-				if i == len(*info.Data) {
+				if i == len(info.Data) {
 					logl.Debug("Output lastBlock to to end of data")
 					OutputBlock(writer, &clampedBlock)
+					current.Update(block.Y, block.Z)
 				} else {
+					if logl.GetLevel() == logl.DEBUG {
+						writer.WriteString("/skip ")
+						OutputBlock(writer, &clampedBlock)
+					}
 					lastBlock = clampedBlock
 					lastBlock.Skip = true
 				}
@@ -157,15 +167,16 @@ func Process(writer *bufio.Writer, info Info) {
 				if lastBlock.Skip {
 					logl.Debugf("Output lastBlock")
 					OutputBlock(writer, &lastBlock)
+					current.Update(block.Y, block.Z)
 					lastBlock.Init()
 				}
 				logl.Debugf("Output %d", i)
 				OutputBlock(writer, &clampedBlock)
 				if clampedBlock.Y != nil {
-					currentY = (*clampedBlock.Y).Value
+					current.Y = (*clampedBlock.Y).Value
 				}
 				if clampedBlock.Z != nil {
-					currentZ = (*clampedBlock.Z).Value
+					current.Z = (*clampedBlock.Z).Value
 				}
 				i++
 				continue
