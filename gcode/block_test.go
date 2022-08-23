@@ -165,46 +165,52 @@ func Test7ParseBlock(t *testing.T) {
 
 }
 
-func Test8ParseBlock(t *testing.T) {
+func Test9ParseBlock(t *testing.T) { // ToStep
 	assert := assert.New(t)
 
 	tests := map[string]struct {
-		X      float32
-		Y      float32
-		Z      float32
-		inc    float32
-		minCut float32
-		pass   int
-		safe   float32
-		isC    bool
-		isS    bool
-		expZ   float32
+		X       float32
+		Y       float32
+		Z       float32
+		inc     float32
+		minCut  float32
+		pass    int
+		safe    float32
+		isC     bool
+		expZ    float32
+		expPass int
 	}{
-		"pass 1 skip":  {X: 1.0, Y: 2.0, Z: -2.0, inc: -3.0, minCut: 0.5, pass: 1, safe: 5.0, isC: false, isS: true, expZ: 5.0},
-		"pass 1 clamp": {X: 1.0, Y: 2.0, Z: -4.0, inc: -3.0, minCut: 0.5, pass: 1, safe: 5.0, isC: true, isS: false, expZ: -2.5},
-		"pass 2 skip":  {X: 1.0, Y: 2.0, Z: -4.0, inc: -3.0, minCut: 0.5, pass: 2, safe: 5.0, isC: false, isS: true, expZ: 5.0},
-		"pass 2 clamp": {X: 1.0, Y: 2.0, Z: -7.0, inc: -3.0, minCut: 0.5, pass: 2, safe: 5.0, isC: true, isS: false, expZ: -5.5},
+		"pass 1 Z = 0":        {X: 1.0, Y: 2.0, Z: 0, inc: -3.0, minCut: 0.5, pass: 1, safe: 5.0, isC: false, expZ: 0, expPass: 0},
+		"pass 1 Z = 3.0":      {X: 1.0, Y: 2.0, Z: 3.0, inc: -3.0, minCut: 0.5, pass: 1, safe: 5.0, isC: false, expZ: 3.0, expPass: 0},
+		"pass 1 shallow":      {X: 1.0, Y: 2.0, Z: -2.0, inc: -3.0, minCut: 0.5, pass: 1, safe: 5.0, isC: true, expZ: 0.5, expPass: 0},
+		"pass 1 deep":         {X: 1.0, Y: 2.0, Z: -4.0, inc: -3.0, minCut: 0.5, pass: 1, safe: 5.0, isC: true, expZ: -2.5, expPass: 1},
+		"pass 1 very shallow": {X: 1.0, Y: 2.0, Z: -2.0, inc: -3.0, minCut: 0.5, pass: 1, safe: 5.0, isC: true, expZ: 0.5, expPass: 0},
+		"pass 2 shallow":      {X: 1.0, Y: 2.0, Z: -4.0, inc: -3.0, minCut: 0.5, pass: 2, safe: 5.0, isC: true, expZ: -2.5, expPass: 1},
+		"pass 2 deep":         {X: 1.0, Y: 2.0, Z: -7.0, inc: -3.0, minCut: 0.5, pass: 2, safe: 5.0, isC: true, expZ: -5.5, expPass: 2},
 	}
+
 	t.Run("Nil Z", func(t *testing.T) {
 		tc := tests["pass 1 skip"]
 		b := Block{}
 		b.SetX(tc.X)
 		b.SetY(tc.Y)
-		clamped := b.ClampZ(tc.inc, tc.minCut, tc.pass, tc.safe)
-		assert.False(clamped, "Clamped returned wrong value")
+		info := Info{Increment: tc.inc, MinCut: tc.minCut, Safe: tc.safe}
+		b.ToStepZ(&info, tc.pass)
+		assert.False(b.IsClamped, "Clamped returned wrong value")
 		assert.Empty(b.Z, "Z should be nil")
 	})
+
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			b := Block{}
 			b.SetX(tc.X)
 			b.SetY(tc.Y)
 			b.SetZ(tc.Z)
-			b.ClampZ(tc.inc, tc.minCut, tc.pass, tc.safe)
-			assert.EqualValues(tc.isC, b.IsClamped)
-			assert.EqualValues(tc.isS, b.IsSafe)
-			assert.EqualValues(tc.expZ, (*b.Z).Value)
+			info := Info{Increment: tc.inc, MinCut: tc.minCut, Safe: tc.safe}
+			b.ToStepZ(&info, tc.pass)
+			assert.EqualValues(tc.isC, b.IsClamped, "IsClamped")
+			assert.EqualValues(tc.expZ, (*b.Z).Value, "Value")
+			assert.EqualValues(tc.expPass, b.LastPass, "LastPass")
 		})
 	}
-
 }

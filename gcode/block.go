@@ -3,6 +3,7 @@ package gcode
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"unicode"
 )
@@ -13,24 +14,24 @@ type Block struct {
 	Cmds      []CodeCmd
 	HasData   bool
 	IsClamped bool
-	IsSafe    bool
-	Skip      bool
+	IsSkip    bool
 	X         *CodeCmd
 	Y         *CodeCmd
 	Z         *CodeCmd
 	G         *CodeCmd
+	LastPass  int
 }
 
 func (b *Block) Init() {
 	b.Cmds = make([]CodeCmd, 0)
 	b.HasData = false
 	b.IsClamped = false
-	b.IsSafe = false
-	b.Skip = false
+	b.IsSkip = false
 	b.X = nil
 	b.Y = nil
 	b.Z = nil
 	b.G = nil
+	b.LastPass = 0
 }
 
 func (b *Block) Copy() Block {
@@ -43,9 +44,8 @@ func (b *Block) Copy() Block {
 	block.Parse(false)
 
 	block.IsClamped = b.IsClamped
-	block.IsSafe = b.IsSafe
-	block.Skip = b.Skip
-
+	block.IsSkip = b.IsSkip
+	block.LastPass = b.LastPass
 	return block
 }
 
@@ -164,22 +164,25 @@ func (b *Block) NoChangeZ(value float32) bool {
 	return b.Z.Value == value
 }
 
-func (b *Block) ClampZ(increment float32, minCut float32, pass int, safe float32) bool {
-	if b.IsClamped || b.IsSafe || b.Z == nil {
-		return false
+func (b *Block) ToStepZ(info *Info, pass int) {
+	if b.IsClamped || b.Z == nil {
+		return
+	}
+	if (*b.Z).Value >= 0 {
+		b.LastPass = 0
+		b.IsClamped = false
+		return
 	}
 	//working with negative Z
-	zCut := increment * float32(pass)
-	if (*b.Z).Value > zCut { // depth is less than pass cutting depth
-		b.IsClamped = false
-		b.IsSafe = true
-		b.SetZ(safe)
-		return true
+	zMaxCut := info.Increment * float32(pass)
+	b.LastPass = int(math.Ceil(float64((*b.Z).Value/info.Increment)) - 1)
+
+	zCut := info.Increment * float32(b.LastPass)
+	if zCut < zMaxCut {
+		zCut = zMaxCut
 	}
+	b.SetZ(zCut + info.MinCut)
 	b.IsClamped = true
-	b.IsSafe = false
-	b.SetZ(zCut + minCut)
-	return true
 }
 
 func ParseLine(line string) (*Block, error) {
