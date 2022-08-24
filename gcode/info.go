@@ -6,12 +6,32 @@ import (
 	"github.com/adrianre12/logl"
 )
 
+type MinMax struct {
+	Min float32
+	Max float32
+}
+
+func (mm *MinMax) Init() {
+	mm.Min = math.MaxFloat32
+	mm.Max = -math.MaxFloat32
+}
+
+func (mm *MinMax) Update(value float32) {
+	if value > mm.Max {
+		mm.Max = value
+	}
+	if value < mm.Min {
+		mm.Min = value
+	}
+}
+
 type Info struct {
 	Setup      Blocks
 	Data       Blocks
 	Finish     Blocks
-	MinZ       float32
-	MaxZ       float32
+	X          MinMax
+	Y          MinMax
+	Z          MinMax
 	Increment  float32
 	MinCut     float32
 	SkipHeight float32
@@ -20,24 +40,16 @@ type Info struct {
 }
 
 func (i *Info) Init() {
-	i.MinZ = math.MaxFloat32
-	i.MaxZ = -math.MaxFloat32
+	i.X.Init()
+	i.Y.Init()
+	i.Z.Init()
 }
 
 func (i *Info) Passes() int {
-	if i.MinZ > 0 {
+	if i.Z.Min > 0 {
 		logl.Fatal("MinZ > 0")
 	}
-	return int(math.Ceil(float64(i.MinZ / i.Increment)))
-}
-
-func (i *Info) UpdateZ(z float32) {
-	if z > i.MaxZ {
-		i.MaxZ = z
-	}
-	if z < i.MinZ {
-		i.MinZ = z
-	}
+	return int(math.Ceil(float64(i.Z.Min / i.Increment)))
 }
 
 func FindInfo(blocks *Blocks) Info {
@@ -56,8 +68,14 @@ func FindInfo(blocks *Blocks) Info {
 				last = i
 			}
 		}
+		if block.X != nil {
+			info.X.Update((*block.X).Value)
+		}
+		if block.Y != nil {
+			info.Y.Update((*block.Y).Value)
+		}
 		if block.Z != nil {
-			info.UpdateZ((*block.Z).Value)
+			info.Z.Update((*block.Z).Value)
 		}
 	}
 	logl.Debugf("first=%d last=%d", first, last)

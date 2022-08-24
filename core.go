@@ -209,7 +209,8 @@ func Run(cli *CliType) error {
 	info.FeedRate = cli.Feed
 	info.Pretty = cli.Pretty
 
-	logl.Infof("MinZ=%.3f MaxZ=%.3f Increment=%.3f minCut=%.3f skipHeight=%.3f", info.MinZ, info.MaxZ, info.Increment, info.MinCut, info.SkipHeight)
+	logl.Infof("MinX=%.3f MaxX=%.3f MinY=%.3f MaxY=%.3f MinZ=%.3f MaxZ=%.3f", info.X.Min, info.X.Max, info.Y.Min, info.Y.Max, info.Z.Min, info.Z.Max)
+	logl.Infof("Increment=%.3f minCut=%.3f skipHeight=%.3f feedRate=%.0f", info.Increment, info.MinCut, info.SkipHeight, info.FeedRate)
 
 	OutputBlocks(writer, info.Setup, info.Pretty)
 	Process(writer, info)
