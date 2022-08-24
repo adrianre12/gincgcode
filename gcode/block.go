@@ -94,11 +94,13 @@ func (b *Block) Parse(multiCheck bool) error {
 	return nil
 }
 
-func (b *Block) String(newline bool, seperator string) string {
+func (b *Block) String(newline bool, pretty bool) string {
 	var sb strings.Builder
 	for _, cmd := range b.Cmds {
-		sb.WriteString(cmd.String())
-		sb.WriteString(seperator)
+		sb.WriteString(cmd.String(pretty))
+		if pretty {
+			sb.WriteString(" ")
+		}
 	}
 	if newline {
 		sb.WriteString("\n")
@@ -258,7 +260,7 @@ func ParseLine(line string) (*Block, error) {
 		}
 
 		if !cc.Supported() {
-			err = errors.New(fmt.Sprintf("Unsuported command: %s", cc.String()))
+			err = errors.New(fmt.Sprintf("Unsuported command: %s", cc.String(true)))
 		}
 		if err != nil {
 			break

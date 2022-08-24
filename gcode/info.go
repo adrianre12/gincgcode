@@ -15,6 +15,7 @@ type Info struct {
 	Increment float32
 	MinCut    float32
 	Safe      float32
+	Pretty    bool
 }
 
 func (i *Info) Init() {

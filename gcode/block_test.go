@@ -115,8 +115,8 @@ func Test5ParseBlock(t *testing.T) {
 	assert := assert.New(t)
 	got, err := ParseLine("G0X1.0")
 	require.Empty(t, err, "Failed to pass cmd line")
-	assert.EqualValues("G00X1.000", got.String(false, ""))
-	assert.EqualValues("G00X1.000\n", got.String(true, ""))
+	assert.EqualValues("G00 X1.000 ", got.String(false, true))
+	assert.EqualValues("G00 X1.000 \n", got.String(true, true))
 }
 func Test6ParseBlock(t *testing.T) {
 	assert := assert.New(t)
@@ -135,7 +135,7 @@ func Test6ParseBlock(t *testing.T) {
 	require.NotEmpty(t, (*got).Z, "Z not set")
 	assert.EqualValues((*got).Z.Value, 3.0)
 
-	assert.EqualValues("G00 X1.000 Y2.000 Z3.000 ", got.String(false, " "))
+	assert.EqualValues("G00 X1.000 Y2.000 Z3.000 ", got.String(false, true))
 }
 
 func Test7ParseBlock(t *testing.T) {

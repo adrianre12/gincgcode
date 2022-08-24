@@ -42,13 +42,13 @@ func ReadFile(fileName string) *gcode.Blocks {
 	return &blocks
 }
 
-func OutputBlock(writer *bufio.Writer, block *gcode.Block) {
-	writer.WriteString(block.String(true, " "))
+func OutputBlock(writer *bufio.Writer, block *gcode.Block, pretty bool) {
+	writer.WriteString(block.String(true, pretty))
 }
 
-func OutputBlocks(writer *bufio.Writer, blocks gcode.Blocks) {
+func OutputBlocks(writer *bufio.Writer, blocks gcode.Blocks, pretty bool) {
 	for _, block := range blocks {
-		OutputBlock(writer, block)
+		OutputBlock(writer, block, pretty)
 	}
 }
 
@@ -74,18 +74,24 @@ func NewCurrent() Current {
 	return Current{Y: float32(math.MaxFloat32), Z: float32(math.MaxFloat32)}
 }
 
+func TernaryString(condition bool, strTrue string, strFalse string) string {
+	if condition {
+		return strTrue
+	}
+	return strFalse
+}
+
 func Process(writer *bufio.Writer, info gcode.Info) {
-	logl.Debug("Processing")
 
 	passes := info.Passes() // calculate passes
-	logl.Debugf("Passes=%d", passes)
+	logl.Infof("Passes=%d", passes)
 
 	for pass := 1; pass <= passes; pass++ {
 		logl.Debugf("======================== Pass %d =============================", pass)
 		writer.WriteString(fmt.Sprintf(";Pass %d\n", pass))
 
 		if pass == passes { //last pass finish cut
-			OutputBlocks(writer, info.Data)
+			OutputBlocks(writer, info.Data, info.Pretty)
 			continue
 		}
 
@@ -98,7 +104,7 @@ func Process(writer *bufio.Writer, info gcode.Info) {
 		index := 0
 		for index < len(info.Data) { //blocks
 			block := info.Data[index]
-			logl.Debugf("%d %s", index, block.String(false, " "))
+			logl.Debugf("%d %s", index, block.String(false, true))
 
 			last = current
 			clampedBlock := block.Copy() //copy the block
@@ -109,6 +115,7 @@ func Process(writer *bufio.Writer, info gcode.Info) {
 				logl.Debugf("Z clamped to %.3f", (*clampedBlock.Z).Value)
 			}
 			logl.Debugf("Current Y=%.3f Z=%.3f LastPass = %d", current.Y, current.Z, current.LastPass)
+
 			skip := false
 			if clampedBlock.NoChangeZ(last.Z) {
 				skip = true
@@ -119,25 +126,25 @@ func Process(writer *bufio.Writer, info gcode.Info) {
 			}
 			skip = skip && clampedBlock.NoChangeY(last.Y)
 			logl.Debugf("Skip = %t", skip)
+
 			if skip {
 				logl.Debugf("skip %d", index)
 				index++
 				if index == len(info.Data) {
 					logl.Debug("Output lastBlock as it is end of data")
-					OutputBlock(writer, &clampedBlock)
+					OutputBlock(writer, &clampedBlock, info.Pretty)
 				} else {
 					if logl.GetLevel() == logl.DEBUG {
 						writer.WriteString(";skip ")
-						OutputBlock(writer, &clampedBlock)
+						OutputBlock(writer, &clampedBlock, info.Pretty)
 					}
 				}
 				if !lastBlock.IsSkip && current.LastPass < pass { //starting to skip, move to safe
 					logl.Debug("Starting skip move to safe")
-					writer.WriteString(fmt.Sprintf("G00 Z%.3f ;fast to safe\n", info.Safe))
+					writer.WriteString(fmt.Sprintf("G00 Z%.3f%s\n", info.Safe, TernaryString(info.Pretty, " ;fast to safe", "")))
 					safeHeight = true
 				}
 				lastBlock = clampedBlock.Copy()
-				lastBlock.SetZ(current.Z)
 				lastBlock.LastPass = current.LastPass
 				lastBlock.IsSkip = true
 
@@ -145,23 +152,23 @@ func Process(writer *bufio.Writer, info gcode.Info) {
 				if lastBlock.IsSkip {
 					if lastBlock.LastPass < pass {
 						logl.Debug("Output fast lastBlock and slow to depth")
-						lastZ := lastBlock.Z.Value
+						lastZ := last.Z
 						lastBlock.SetZ(info.Safe)
 						lastBlock.SetG(0)
-						OutputBlock(writer, &lastBlock)
-						writer.WriteString(fmt.Sprintf("G01 Z%.3f ;slow to depth\n", lastZ))
+						OutputBlock(writer, &lastBlock, info.Pretty)
+						writer.WriteString(fmt.Sprintf("G01 Z%.3f%s\n", lastZ, TernaryString(info.Pretty, " ;slow to depth", "")))
 						safeHeight = false
 					} else {
 						logl.Debug("Output lastBlock")
-						OutputBlock(writer, &lastBlock)
+						OutputBlock(writer, &lastBlock, info.Pretty)
 					}
 					lastBlock.Init()
 				}
 
 				logl.Debugf("Output %d", index)
-				OutputBlock(writer, &clampedBlock)
+				OutputBlock(writer, &clampedBlock, info.Pretty)
 				if lastBlock.IsSkip && lastBlock.LastPass < pass { //point is from shallower pass
-					writer.WriteString(fmt.Sprintf("G00 Z%.3f ;fast to safe after change\n", info.Safe))
+					writer.WriteString(fmt.Sprintf("G00 Z%.3f%s\n", info.Safe, TernaryString(info.Pretty, " ;fast to safe after change", "")))
 					safeHeight = true
 				}
 				index++
@@ -177,12 +184,12 @@ func Run(cli *CliType) error {
 	var fout *os.File
 
 	if cli.Outfile == "" {
-		logl.Debug("Output to screen")
+		logl.Info("Output to screen")
 		fout = os.Stdout
 	} else {
-		logl.Debug("Output to file")
+		logl.Info("Output to file")
 		var err error
-		fout, err = os.OpenFile(cli.Outfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		fout, err = os.OpenFile(cli.Outfile, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			logl.Fatal("Error opening file")
 		}
@@ -195,11 +202,14 @@ func Run(cli *CliType) error {
 	info.Increment = cli.Increment
 	info.MinCut = cli.MinCut
 	info.Safe = cli.Safe
+	info.Pretty = cli.Pretty
 
-	logl.Debugf("MinZ=%.3f MaxZ=%.3f Increment=%.3f minCut=%.3f safe=%.3f", info.MinZ, info.MaxZ, info.Increment, info.MinCut, info.Safe)
+	logl.Infof("MinZ=%.3f MaxZ=%.3f Increment=%.3f minCut=%.3f safe=%.3f", info.MinZ, info.MaxZ, info.Increment, info.MinCut, info.Safe)
 
-	OutputBlocks(writer, info.Setup)
+	OutputBlocks(writer, info.Setup, info.Pretty)
 	Process(writer, info)
-	OutputBlocks(writer, info.Finish)
+	OutputBlocks(writer, info.Finish, info.Pretty)
+	logl.Info("Finished")
+
 	return nil
 }
