@@ -116,6 +116,10 @@ func Process(writer *bufio.Writer, info gcode.Info) {
 			}
 			logl.Debugf("Current Y=%.3f Z=%.3f LastPass = %d", current.Y, current.Z, current.LastPass)
 
+			if info.FeedRate > 0 && clampedBlock.F != nil {
+				clampedBlock.SetF(info.FeedRate)
+			}
+
 			skip := false
 			if clampedBlock.NoChangeZ(last.Z) {
 				skip = true
@@ -202,6 +206,7 @@ func Run(cli *CliType) error {
 	info.Increment = cli.Increment
 	info.MinCut = cli.MinCut
 	info.SkipHeight = cli.SkipHeight
+	info.FeedRate = cli.Feed
 	info.Pretty = cli.Pretty
 
 	logl.Infof("MinZ=%.3f MaxZ=%.3f Increment=%.3f minCut=%.3f skipHeight=%.3f", info.MinZ, info.MaxZ, info.Increment, info.MinCut, info.SkipHeight)

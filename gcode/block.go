@@ -19,6 +19,7 @@ type Block struct {
 	Y         *CodeCmd
 	Z         *CodeCmd
 	G         *CodeCmd
+	F         *CodeCmd
 	LastPass  int
 }
 
@@ -55,6 +56,14 @@ func (b *Block) Parse(multiCheck bool) error {
 	for i, cmd := range b.Cmds {
 
 		switch cmd.Cmd {
+		case "F":
+			{
+				b.HasData = true
+				if multiCheck && b.F != nil {
+					return errors.New("Multiple F values in block")
+				}
+				b.F = &b.Cmds[i]
+			}
 		case "G":
 			{
 				if cmd.Value <= 1 { //only select G0 and G1
@@ -147,6 +156,17 @@ func (b *Block) SetG(value float32) {
 	} else {
 		cmd := CodeCmd{Cmd: "G", Value: value, Type: Address}
 		b.Cmds = append([]CodeCmd{cmd}, b.Cmds...)
+		b.Parse(false)
+		b.HasData = true
+	}
+}
+
+func (b *Block) SetF(value float32) {
+	if b.F != nil {
+		b.F.Value = value
+	} else {
+		cmd := CodeCmd{Cmd: "F", Value: value, Type: ValueInt}
+		b.Cmds = append(b.Cmds, cmd)
 		b.Parse(false)
 		b.HasData = true
 	}

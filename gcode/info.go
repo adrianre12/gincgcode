@@ -7,15 +7,16 @@ import (
 )
 
 type Info struct {
-	Setup     Blocks
-	Data      Blocks
-	Finish    Blocks
-	MinZ      float32
-	MaxZ      float32
-	Increment float32
-	MinCut    float32
-	SkipHeight      float32
-	Pretty    bool
+	Setup      Blocks
+	Data       Blocks
+	Finish     Blocks
+	MinZ       float32
+	MaxZ       float32
+	Increment  float32
+	MinCut     float32
+	SkipHeight float32
+	FeedRate   float32
+	Pretty     bool
 }
 
 func (i *Info) Init() {
