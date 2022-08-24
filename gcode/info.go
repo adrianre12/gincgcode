@@ -14,7 +14,7 @@ type Info struct {
 	MaxZ      float32
 	Increment float32
 	MinCut    float32
-	Safe      float32
+	SkipHeight      float32
 	Pretty    bool
 }
 

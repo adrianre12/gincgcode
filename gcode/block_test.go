@@ -194,7 +194,7 @@ func Test9ParseBlock(t *testing.T) { // ToStep
 		b := Block{}
 		b.SetX(tc.X)
 		b.SetY(tc.Y)
-		info := Info{Increment: tc.inc, MinCut: tc.minCut, Safe: tc.safe}
+		info := Info{Increment: tc.inc, MinCut: tc.minCut, SkipHeight: tc.safe}
 		b.ToStepZ(&info, tc.pass)
 		assert.False(b.IsClamped, "Clamped returned wrong value")
 		assert.Empty(b.Z, "Z should be nil")
@@ -206,7 +206,7 @@ func Test9ParseBlock(t *testing.T) { // ToStep
 			b.SetX(tc.X)
 			b.SetY(tc.Y)
 			b.SetZ(tc.Z)
-			info := Info{Increment: tc.inc, MinCut: tc.minCut, Safe: tc.safe}
+			info := Info{Increment: tc.inc, MinCut: tc.minCut, SkipHeight: tc.safe}
 			b.ToStepZ(&info, tc.pass)
 			assert.EqualValues(tc.isC, b.IsClamped, "IsClamped")
 			assert.EqualValues(tc.expZ, (*b.Z).Value, "Value")

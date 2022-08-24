@@ -139,9 +139,9 @@ func Process(writer *bufio.Writer, info gcode.Info) {
 						OutputBlock(writer, &clampedBlock, info.Pretty)
 					}
 				}
-				if !lastBlock.IsSkip && current.LastPass < pass { //starting to skip, move to safe
-					logl.Debug("Starting skip move to safe")
-					writer.WriteString(fmt.Sprintf("G00 Z%.3f%s\n", info.Safe, TernaryString(info.Pretty, " ;fast to safe", "")))
+				if !lastBlock.IsSkip && current.LastPass < pass { //starting to skip, move to skip height
+					logl.Debug("Starting skip move to skip height")
+					writer.WriteString(fmt.Sprintf("G00 Z%.3f%s\n", info.SkipHeight, TernaryString(info.Pretty, " ;fast to skip height", "")))
 					safeHeight = true
 				}
 				lastBlock = clampedBlock.Copy()
@@ -153,7 +153,7 @@ func Process(writer *bufio.Writer, info gcode.Info) {
 					if lastBlock.LastPass < pass {
 						logl.Debug("Output fast lastBlock and slow to depth")
 						lastZ := last.Z
-						lastBlock.SetZ(info.Safe)
+						lastBlock.SetZ(info.SkipHeight)
 						lastBlock.SetG(0)
 						OutputBlock(writer, &lastBlock, info.Pretty)
 						writer.WriteString(fmt.Sprintf("G01 Z%.3f%s\n", lastZ, TernaryString(info.Pretty, " ;slow to depth", "")))
@@ -168,7 +168,7 @@ func Process(writer *bufio.Writer, info gcode.Info) {
 				logl.Debugf("Output %d", index)
 				OutputBlock(writer, &clampedBlock, info.Pretty)
 				if lastBlock.IsSkip && lastBlock.LastPass < pass { //point is from shallower pass
-					writer.WriteString(fmt.Sprintf("G00 Z%.3f%s\n", info.Safe, TernaryString(info.Pretty, " ;fast to safe after change", "")))
+					writer.WriteString(fmt.Sprintf("G00 Z%.3f%s\n", info.SkipHeight, TernaryString(info.Pretty, " ;fast to skip height after change", "")))
 					safeHeight = true
 				}
 				index++
@@ -201,10 +201,10 @@ func Run(cli *CliType) error {
 	info := gcode.FindInfo(blocks)
 	info.Increment = cli.Increment
 	info.MinCut = cli.MinCut
-	info.Safe = cli.Safe
+	info.SkipHeight = cli.SkipHeight
 	info.Pretty = cli.Pretty
 
-	logl.Infof("MinZ=%.3f MaxZ=%.3f Increment=%.3f minCut=%.3f safe=%.3f", info.MinZ, info.MaxZ, info.Increment, info.MinCut, info.Safe)
+	logl.Infof("MinZ=%.3f MaxZ=%.3f Increment=%.3f minCut=%.3f skipHeight=%.3f", info.MinZ, info.MaxZ, info.Increment, info.MinCut, info.SkipHeight)
 
 	OutputBlocks(writer, info.Setup, info.Pretty)
 	Process(writer, info)

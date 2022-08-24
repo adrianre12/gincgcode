@@ -7,13 +7,13 @@ import (
 )
 
 type CliType struct {
-	Debug     bool    `help:"Enable debug mode."`
-	Pretty    bool    `short:"p" help:"Enable pretty print, this makes the output much larger"`
-	Increment float32 `optional:"" short:"i" default:"-3.0" help:"Increment in depth of cut in each pass"`
-	MinCut    float32 `optional:"" short:"m" default:"0.5" help:"Minimum thickness to leave for Finish cut"`
-	Safe      float32 `optional:"" short:"s" default:"5.0" help:"Safe height for rapid movement"`
-	Infile    string  `arg:"" help:"Input filename"`
-	Outfile   string  `arg:"" optional:"" help:"Output filename"`
+	Debug      bool    `help:"Enable debug mode."`
+	Pretty     bool    `short:"p" help:"Enable pretty print, this makes the output much larger"`
+	Increment  float32 `optional:"" short:"i" default:"-3.0" help:"Increment in depth of cut in each pass"`
+	MinCut     float32 `optional:"" short:"m" default:"0.5" help:"Minimum thickness to leave for Finish cut"`
+	SkipHeight float32 `optional:"" short:"s" default:"1.0" help:"Skip height for rapid movement, should be as low as possible to clear materarial"`
+	Infile     string  `arg:"" help:"Input filename"`
+	Outfile    string  `arg:"" optional:"" help:"Output filename"`
 }
 
 func main() {
