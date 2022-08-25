@@ -103,6 +103,15 @@ func (b *Block) Parse(multiCheck bool) error {
 	return nil
 }
 
+func (b *Block) Reposition(offsetX float32, offsetY float32) {
+	if b.X != nil && offsetX != 0 {
+		b.SetX(b.X.Value + offsetX)
+	}
+	if b.Y != nil && offsetY != 0 {
+		b.SetY(b.Y.Value + offsetY)
+	}
+}
+
 func (b *Block) String(newline bool, pretty bool) string {
 	var sb strings.Builder
 	for _, cmd := range b.Cmds {

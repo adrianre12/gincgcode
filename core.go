@@ -82,7 +82,6 @@ func TernaryString(condition bool, strTrue string, strFalse string) string {
 }
 
 func Process(writer *bufio.Writer, info gcode.Info) {
-
 	passes := info.Passes() // calculate passes
 	logl.Infof("Passes=%d", passes)
 
@@ -183,6 +182,43 @@ func Process(writer *bufio.Writer, info gcode.Info) {
 
 }
 
+func Realign(info *gcode.Info, alignment string) {
+
+	var offsetX float32 // to be added to positions
+	var offsetY float32
+
+	switch strings.ToLower(alignment) {
+	case "none":
+		{
+			offsetX = 0
+			offsetY = 0
+		}
+	case "corner":
+		{
+			offsetX = -info.X.Min
+			offsetY = -info.Y.Min
+		}
+	case "center":
+		{
+			offsetX = -(info.X.Max + info.X.Min) / 2
+			offsetY = -(info.Y.Max + info.Y.Min) / 2
+		}
+	default:
+		{
+			logl.Fatalf("Invalid Alignment %s", alignment)
+		}
+	}
+
+	for _, block := range info.Data {
+		block.Reposition(offsetX, offsetY)
+	}
+
+	info.X.Min = info.X.Min + offsetX
+	info.X.Max = info.X.Max + offsetX
+	info.Y.Min = info.Y.Min + offsetY
+	info.Y.Max = info.Y.Max + offsetY
+}
+
 func Run(cli *CliType) error {
 	logl.Info("Starting")
 	var fout *os.File
@@ -208,6 +244,8 @@ func Run(cli *CliType) error {
 	info.SkipHeight = cli.SkipHeight
 	info.FeedRate = cli.Feed
 	info.Pretty = cli.Pretty
+
+	Realign(&info, cli.Align)
 
 	logl.Infof("MinX=%.3f MaxX=%.3f MinY=%.3f MaxY=%.3f MinZ=%.3f MaxZ=%.3f", info.X.Min, info.X.Max, info.Y.Min, info.Y.Max, info.Z.Min, info.Z.Max)
 	logl.Infof("Increment=%.3f minCut=%.3f skipHeight=%.3f feedRate=%.0f", info.Increment, info.MinCut, info.SkipHeight, info.FeedRate)

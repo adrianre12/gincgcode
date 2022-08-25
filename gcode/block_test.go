@@ -222,3 +222,17 @@ func Test9ParseBlock(t *testing.T) { // ToStep
 		})
 	}
 }
+
+func Test10ParseBlock(t *testing.T) { // Reposition
+	assert := assert.New(t)
+	b := Block{}
+	b.Reposition(10.0, 20.0)
+	assert.Empty(b.X, "X not nil")
+	assert.Empty(b.Y, "Y not nil")
+
+	b.SetX(1)
+	b.SetY(2)
+	b.Reposition(10.0, 20.0)
+	assert.EqualValues(11.0, b.X.Value)
+	assert.EqualValues(22.0, b.Y.Value)
+}

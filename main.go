@@ -15,6 +15,7 @@ type CliType struct {
 	SkipHeight float32 `optional:"" short:"s" default:"1.0" help:"Skip height for rapid movement, should be as low as possible to clear materarial"`
 	Infile     string  `arg:"" help:"Input filename"`
 	Outfile    string  `arg:"" optional:"" help:"Output filename"`
+	Align      string  `short:"a" enum:"none,corner,center" default:none help:"Realign output Gcode"`
 }
 
 func main() {
