@@ -242,6 +242,9 @@ func Run(cli *CliType) error {
 	info.Increment = cli.Increment
 	info.MinCut = cli.MinCut
 	info.SkipHeight = cli.SkipHeight
+	if cli.Feed <= 0 {
+		logl.Fatal("Feed cannot be zero or negative")
+	}
 	info.FeedRate = cli.Feed
 	info.Pretty = cli.Pretty
 

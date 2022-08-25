@@ -3,7 +3,7 @@ module gincgcode
 go 1.19
 
 require (
-	github.com/adrianre12/logl v0.1.5
+	github.com/adrianre12/logl v0.1.6
 	github.com/alecthomas/kong v0.6.1
 	github.com/stretchr/testify v1.7.2
 )
